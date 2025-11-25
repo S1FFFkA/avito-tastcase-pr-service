@@ -1,0 +1,350 @@
+{
+	"info": {
+		"_postman_id": "avito-pr-load-test-001",
+		"name": "AVITO PR System Load Test",
+		"description": "Готовая коллекция для нагрузочного тестирования API системы управления Pull Request",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Team",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Генерируем уникальные ID для каждого запроса",
+							"const timestamp = Date.now();",
+							"const random = Math.floor(Math.random() * 10000);",
+							"pm.collectionVariables.set(\"run_id\", timestamp);",
+							"pm.collectionVariables.set(\"team_index\", random);",
+							"pm.collectionVariables.set(\"user_index_1\", random + 1);",
+							"pm.collectionVariables.set(\"user_index_2\", random + 2);",
+							"pm.collectionVariables.set(\"user_index_3\", random + 3);",
+							"pm.collectionVariables.set(\"user_index_4\", random + 4);",
+							"pm.collectionVariables.set(\"user_index_5\", random + 5);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer test-token"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"team_name\": \"load-test-team-{{run_id}}-{{team_index}}\",\n  \"members\": [\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-1\",\n      \"username\": \"User 1\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-2\",\n      \"username\": \"User 2\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-3\",\n      \"username\": \"User 3\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-4\",\n      \"username\": \"User 4\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-5\",\n      \"username\": \"User 5\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-6\",\n      \"username\": \"User 6\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-7\",\n      \"username\": \"User 7\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-8\",\n      \"username\": \"User 8\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-9\",\n      \"username\": \"User 9\",\n      \"is_active\": true\n    },\n    {\n      \"user_id\": \"user-{{run_id}}-{{team_index}}-10\",\n      \"username\": \"User 10\",\n      \"is_active\": true\n    }\n  ]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/team/add",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"team",
+						"add"
+					]
+				},
+				"description": "Создание команды с 5 участниками для нагрузочного тестирования"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Team",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Используем существующий run_id или генерируем новый",
+							"if (!pm.collectionVariables.get(\"run_id\")) {",
+							"    pm.collectionVariables.set(\"run_id\", Date.now());",
+							"    pm.collectionVariables.set(\"team_index\", Math.floor(Math.random() * 10000));",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer test-token"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/team/get?team_name=load-test-team-{{run_id}}-{{team_index}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"team",
+						"get"
+					],
+					"query": [
+						{
+							"key": "team_name",
+							"value": "load-test-team-{{run_id}}-{{team_index}}"
+						}
+					]
+				},
+				"description": "Получение информации о команде"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Pull Request",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Генерируем уникальный ID для PR",
+							"const timestamp = Date.now();",
+							"const random = Math.floor(Math.random() * 10000);",
+							"pm.collectionVariables.set(\"pr_id\", `pr-load-${timestamp}-${random}`);",
+							"",
+							"// Используем существующий run_id или генерируем новый",
+							"if (!pm.collectionVariables.get(\"run_id\")) {",
+							"    pm.collectionVariables.set(\"run_id\", timestamp);",
+							"    pm.collectionVariables.set(\"team_index\", random);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer test-token"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pull_request_id\": \"{{pr_id}}\",\n  \"pull_request_name\": \"Load Test PR {{pr_id}}\",\n  \"author_id\": \"user-{{run_id}}-{{team_index}}-1\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/pullRequest/create",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"pullRequest",
+						"create"
+					]
+				},
+				"description": "Создание Pull Request с автоматическим назначением ревьюверов"
+			},
+			"response": []
+		},
+		{
+			"name": "Reassign Reviewer",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Используем существующий pr_id или генерируем новый",
+							"if (!pm.collectionVariables.get(\"pr_id\")) {",
+							"    const timestamp = Date.now();",
+							"    const random = Math.floor(Math.random() * 10000);",
+							"    pm.collectionVariables.set(\"pr_id\", `pr-load-${timestamp}-${random}`);",
+							"    pm.collectionVariables.set(\"run_id\", timestamp);",
+							"    pm.collectionVariables.set(\"team_index\", random);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer test-token"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pull_request_id\": \"{{pr_id}}\",\n  \"old_user_id\": \"user-{{run_id}}-{{team_index}}-2\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/pullRequest/reassign",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"pullRequest",
+						"reassign"
+					]
+				},
+				"description": "Переназначение ревьювера на PR"
+			},
+			"response": []
+		},
+		{
+			"name": "Merge Pull Request",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Используем существующий pr_id или генерируем новый",
+							"if (!pm.collectionVariables.get(\"pr_id\")) {",
+							"    const timestamp = Date.now();",
+							"    const random = Math.floor(Math.random() * 10000);",
+							"    pm.collectionVariables.set(\"pr_id\", `pr-load-${timestamp}-${random}`);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer test-token"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pull_request_id\": \"{{pr_id}}\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/pullRequest/merge",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"pullRequest",
+						"merge"
+					]
+				},
+				"description": "Слияние Pull Request"
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Reviews",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Используем существующий run_id или генерируем новый",
+							"if (!pm.collectionVariables.get(\"run_id\")) {",
+							"    pm.collectionVariables.set(\"run_id\", Date.now());",
+							"    pm.collectionVariables.set(\"team_index\", Math.floor(Math.random() * 10000));",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer test-token"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/users/getReview?user_id=user-{{run_id}}-{{team_index}}-1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"users",
+						"getReview"
+					],
+					"query": [
+						{
+							"key": "user_id",
+							"value": "user-{{run_id}}-{{team_index}}-1"
+						}
+					]
+				},
+				"description": "Получение списка PR, назначенных на ревью пользователю"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Глобальный скрипт для всех запросов",
+					"// Устанавливаем базовый URL если не установлен",
+					"if (!pm.collectionVariables.get(\"base_url\")) {",
+					"    pm.collectionVariables.set(\"base_url\", \"http://localhost:8080\");",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "Bearer test-token",
+			"type": "string"
+		}
+	]
+}
+
