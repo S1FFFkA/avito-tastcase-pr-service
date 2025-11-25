@@ -3,7 +3,7 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'avito-pr-api'
+  - job_name: 'avito-testcase-backend'
     static_configs:
-      - targets: ['backend:8080']
+      - targets: ['app:8080']
 

@@ -8,7 +8,6 @@ $testDbName = if ($env:TEST_DB_NAME) { $env:TEST_DB_NAME } else { "avito_pr_test
 $testDbPort = if ($env:TEST_DB_PORT) { $env:TEST_DB_PORT } else { "55432" }
 $testDbHost = if ($env:TEST_DB_HOST) { $env:TEST_DB_HOST } else { "localhost" }
 
-# Устанавливаем переменные окружения для тестов
 $env:TEST_DB_HOST = $testDbHost
 $env:TEST_DB_PORT = $testDbPort
 $env:TEST_DB_USER = $testDbUser

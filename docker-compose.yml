@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: avito-pr-api-backend
+    container_name: avito-testcase-backend
     env_file:
       - .env
     depends_on:
@@ -62,7 +62,7 @@ services:
       - "pg_stat_statements.max=10000"
       - "-c"
       - "pg_stat_statements.track=all"
-    container_name: avito-pr-api-postgres
+    container_name: avito-testcase-postgres
     env_file:
       - .env
     environment:
@@ -86,7 +86,7 @@ services:
 
   migrate:
     image: migrate/migrate:latest
-    container_name: avito-pr-api-migrate
+    container_name: avito-testcase-migrate
     env_file:
       - .env
     volumes:
@@ -104,7 +104,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: avito-pr-api-prometheus
+    container_name: avito-testcase-prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus

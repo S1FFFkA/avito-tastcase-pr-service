@@ -2,7 +2,7 @@ version: '3.8'
 services:
   postgres-test:
     image: postgres:15-alpine
-    container_name: avito-pr-api-postgres-test
+    container_name: avito-testcase-postgres-test
     environment:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
@@ -18,7 +18,7 @@ services:
       - postgres_test_data:/var/lib/postgresql/data
   migrate-test:
     image: migrate/migrate:latest
-    container_name: avito-pr-api-migrate-test
+    container_name: avito-testcase-migrate-test
     volumes:
       - ./migrations:/migrations
     command:
