@@ -42,12 +42,12 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 
 	createdTeam, err := h.teamService.CreateTeam(r.Context(), &team)
 	if err != nil {
-		logger.SafeErrorw("failed to create team", "team_name", team.TeamName, "error", err)
+		logger.Logger.Errorw("failed to create team", "team_name", team.TeamName, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("team created successfully", "team_name", createdTeam.TeamName, "members_count", len(createdTeam.Members))
+	logger.Logger.Infow("team created successfully", "team_name", createdTeam.TeamName, "members_count", len(createdTeam.Members))
 	writeJSON(w, statusCreated, domain.CreateTeamResponse{Team: createdTeam})
 }
 
@@ -65,11 +65,11 @@ func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 
 	team, err := h.teamService.GetTeam(r.Context(), teamName)
 	if err != nil {
-		logger.SafeErrorw("failed to get team", "team_name", teamName, "error", err)
+		logger.Logger.Errorw("failed to get team", "team_name", teamName, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("team retrieved successfully", "team_name", teamName, "members_count", len(team.Members))
+	logger.Logger.Infow("team retrieved successfully", "team_name", teamName, "members_count", len(team.Members))
 	writeJSON(w, statusOK, team)
 }

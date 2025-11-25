@@ -10,7 +10,7 @@ import (
 // Исключает автора и неактивных пользователей
 func RandSelectReviewers(members []domain.TeamMember, authorID string, maxCount int) []string {
 	if maxCount <= 0 {
-		return []string{}
+		return make([]string, 0)
 	}
 
 	candidates := make([]string, 0, len(members))

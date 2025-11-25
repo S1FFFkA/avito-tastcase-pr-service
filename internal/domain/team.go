@@ -11,6 +11,10 @@ type Team struct {
 	Members  []TeamMember `json:"members"`
 }
 
+type CreateTeamResponse struct {
+	Team *Team `json:"team"`
+}
+
 type DeactivateTeamMembersReq struct {
 	TeamName string   `json:"team_name"`
 	UserIDs  []string `json:"user_ids,omitempty"` // Если пустой деактивируем всех пользователей команды

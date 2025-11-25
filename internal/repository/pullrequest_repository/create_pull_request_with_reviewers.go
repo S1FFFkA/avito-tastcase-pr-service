@@ -55,5 +55,6 @@ func (s *PullRequestStorage) CreatePullRequestWithReviewers(
 		return err
 	}
 
+	logger.LogTransactionCommit(operation)
 	return nil
 }

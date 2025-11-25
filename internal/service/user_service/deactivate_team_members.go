@@ -34,6 +34,26 @@ func (s *UserServiceImpl) DeactivateTeamMembers(
 		return nil, err
 	}
 
+	// Проверка: нельзя деактивировать всех участников команды без явного указания UserIDs
+	if len(req.UserIDs) == 0 {
+		logger.LogBusinessTransactionEnd(operation, time.Since(start), false, map[string]interface{}{
+			"team_name": req.TeamName,
+			"error":     "cannot deactivate all team members without explicit user IDs",
+			"reason":    "empty_user_ids",
+		})
+		return nil, fmt.Errorf("%w: cannot deactivate all team members without explicit user IDs", domain.ErrInvalidRequest)
+	}
+
+	// Проверка: нельзя деактивировать всех участников команды
+	if len(req.UserIDs) == len(team.Members) {
+		logger.LogBusinessTransactionEnd(operation, time.Since(start), false, map[string]interface{}{
+			"team_name": req.TeamName,
+			"error":     "cannot deactivate all team members, team would be left without reviewers",
+			"reason":    "deactivate_all_members",
+		})
+		return nil, fmt.Errorf("%w: cannot deactivate all team members, team would be left without reviewers", domain.ErrInvalidRequest)
+	}
+
 	memberIndex := make(map[string]domain.TeamMember, len(team.Members))
 	for _, member := range team.Members {
 		memberIndex[member.UserID] = member

@@ -8,7 +8,12 @@ func LogBusinessTransactionStart(operation string, fields map[string]interface{}
 	if Logger == nil {
 		return
 	}
-	args := []interface{}{"operation", operation}
+	capacity := 2 + len(fields)*2
+	if capacity < 4 {
+		capacity = 4
+	}
+	args := make([]interface{}, 0, capacity)
+	args = append(args, "operation", operation)
 	for k, v := range fields {
 		args = append(args, k, v)
 	}
@@ -19,7 +24,12 @@ func LogBusinessTransactionEnd(operation string, duration time.Duration, success
 	if Logger == nil {
 		return
 	}
-	args := []interface{}{"operation", operation, "duration", duration, "success", success}
+	capacity := 6 + len(fields)*2
+	if capacity < 8 {
+		capacity = 8
+	}
+	args := make([]interface{}, 0, capacity)
+	args = append(args, "operation", operation, "duration", duration, "success", success)
 	for k, v := range fields {
 		args = append(args, k, v)
 	}
@@ -34,7 +44,12 @@ func LogBusinessRule(rule string, fields map[string]interface{}) {
 	if Logger == nil {
 		return
 	}
-	args := []interface{}{"rule", rule}
+	capacity := 2 + len(fields)*2
+	if capacity < 4 {
+		capacity = 4
+	}
+	args := make([]interface{}, 0, capacity)
+	args = append(args, "rule", rule)
 	for k, v := range fields {
 		args = append(args, k, v)
 	}
@@ -45,7 +60,12 @@ func LogCriticalEvent(event string, fields map[string]interface{}) {
 	if Logger == nil {
 		return
 	}
-	args := []interface{}{"event", event}
+	capacity := 2 + len(fields)*2
+	if capacity < 4 {
+		capacity = 4
+	}
+	args := make([]interface{}, 0, capacity)
+	args = append(args, "event", event)
 	for k, v := range fields {
 		args = append(args, k, v)
 	}

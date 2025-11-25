@@ -20,14 +20,19 @@
 
 2. Отредактируйте `.env` файл при необходимости (значения по умолчанию уже настроены):
    ```env
-   # Database configuration
-   DB_USERNAME=avito_user
+   # API Configuration
+   API_PORT=8080
+
+   # Database Configuration
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_USER=avito_user
    DB_PASSWORD=avito_password
    DB_NAME=avito_pr_db
-   DB_PORT=5432
+   DB_SSLMODE=disable
 
-   # API configuration
-   API_PORT=8080
+   # For Docker Compose, use:
+   # DB_HOST=postgres
    ```
 
 ### Локальный запуск приложения (через docker-compose)
@@ -67,8 +72,13 @@ docker-compose down -v
 ### Локальный запуск приложения
 
 Перед запуском необходимо установить переменные окружения:
-- `DB_DSN` - строка подключения к БД (например: `postgres://user:password@localhost:5432/avito_pr_db?sslmode=disable`)
-- `API_PORT` - порт для API сервера (по умолчанию 8080)
+- `DB_HOST` - хост БД (по умолчанию `localhost`)
+- `DB_PORT` - порт БД (по умолчанию `5432`)
+- `DB_USER` - пользователь БД (по умолчанию `avito_user`)
+- `DB_PASSWORD` - пароль БД (по умолчанию `avito_password`)
+- `DB_NAME` - имя БД (по умолчанию `avito_pr_db`)
+- `DB_SSLMODE` - режим SSL (по умолчанию `disable`)
+- `API_PORT` - порт для API сервера (по умолчанию `8080`)
 
 **Применение миграций**
 
@@ -148,9 +158,16 @@ cp .env.example .env
 Отредактируйте `.env` и укажите параметры подключения к БД:
 
 ```env
-DB_DSN=postgres://user:password@localhost:5432/avitopr?sslmode=disable
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=avito_user
+DB_PASSWORD=avito_password
+DB_NAME=avito_pr_db
+DB_SSLMODE=disable
+
+# API Configuration
 API_PORT=8080
-LOG_LEVEL=info
 ```
 
 ### 3. Установка зависимостей
@@ -405,7 +422,12 @@ go tool cover -html=coverage.out -o coverage.html
 docker-compose ps
 
 # Установите переменную окружения для подключения к БД
-$env:DB_DSN="postgres://avito_user:avito_password@localhost:5432/avito_pr_db?sslmode=disable"
+$env:DB_HOST="localhost"
+$env:DB_PORT="5432"
+$env:DB_USER="avito_user"
+$env:DB_PASSWORD="avito_password"
+$env:DB_NAME="avito_pr_db"
+$env:DB_SSLMODE="disable"
 
 # Запустите интеграционные тесты
 go test -v -tags=integration ./integration_tests/...
@@ -413,7 +435,12 @@ go test -v -tags=integration ./integration_tests/...
 
 **Linux/macOS:**
 ```bash
-export DB_DSN="postgres://avito_user:avito_password@localhost:5432/avito_pr_db?sslmode=disable"
+export DB_HOST="localhost"
+export DB_PORT="5432"
+export DB_USER="avito_user"
+export DB_PASSWORD="avito_password"
+export DB_NAME="avito_pr_db"
+export DB_SSLMODE="disable"
 make integration-tests
 ```
 

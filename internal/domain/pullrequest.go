@@ -52,3 +52,12 @@ type ReviewerReassignment struct {
 	OldReviewerID string `json:"old_reviewer_id"`
 	NewReviewerID string `json:"new_reviewer_id,omitempty"`
 }
+
+type PullRequestResponse struct {
+	PR *PullRequest `json:"pr"`
+}
+
+type ReassignReviewerResponse struct {
+	PR         *PullRequest `json:"pr"`
+	ReplacedBy string       `json:"replaced_by"`
+}

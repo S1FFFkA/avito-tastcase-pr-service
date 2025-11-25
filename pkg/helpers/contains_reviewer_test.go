@@ -1,52 +1,54 @@
 package helpers
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestContainsReviewer(t *testing.T) {
 	tests := []struct {
 		name      string
 		reviewers []string
 		userID    string
-		expected  bool
+		want      bool
 	}{
 		{
-			name:      "reviewer found",
-			reviewers: []string{"user-1", "user-2", "user-3"},
-			userID:    "user-2",
-			expected:  true,
+			name:      "reviewer is in list",
+			reviewers: []string{"user1", "user2", "user3"},
+			userID:    "user2",
+			want:      true,
 		},
 		{
-			name:      "reviewer not found",
-			reviewers: []string{"user-1", "user-2", "user-3"},
-			userID:    "user-4",
-			expected:  false,
+			name:      "reviewer is not in list",
+			reviewers: []string{"user1", "user2", "user3"},
+			userID:    "user4",
+			want:      false,
 		},
 		{
-			name:      "empty reviewers list",
+			name:      "empty list",
 			reviewers: []string{},
-			userID:    "user-1",
-			expected:  false,
+			userID:    "user1",
+			want:      false,
 		},
 		{
-			name:      "single reviewer found",
-			reviewers: []string{"user-1"},
-			userID:    "user-1",
-			expected:  true,
+			name:      "single element list - found",
+			reviewers: []string{"user1"},
+			userID:    "user1",
+			want:      true,
 		},
 		{
-			name:      "single reviewer not found",
-			reviewers: []string{"user-1"},
-			userID:    "user-2",
-			expected:  false,
+			name:      "single element list - not found",
+			reviewers: []string{"user1"},
+			userID:    "user2",
+			want:      false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ContainsReviewer(tt.reviewers, tt.userID)
-			if result != tt.expected {
-				t.Errorf("ContainsReviewer() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.want, result)
 		})
 	}
 }

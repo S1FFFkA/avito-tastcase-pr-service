@@ -27,12 +27,13 @@ func setupReviewerTestDB(t *testing.T) *sql.DB {
 }
 
 func cleanupReviewerTestDB(t *testing.T, db *sql.DB) {
-	queries := []string{
+	queries := make([]string, 0, 4)
+	queries = append(queries,
 		"DELETE FROM reviewers",
 		"DELETE FROM pull_requests",
 		"DELETE FROM users",
 		"DELETE FROM teams",
-	}
+	)
 
 	for _, query := range queries {
 		_, err := db.Exec(query)

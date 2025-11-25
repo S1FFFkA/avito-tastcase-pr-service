@@ -43,13 +43,13 @@ func (h *PullRequestHandler) CreatePullRequest(w http.ResponseWriter, r *http.Re
 
 	pr, err := h.prService.CreatePullRequest(r.Context(), &req)
 	if err != nil {
-		logger.SafeErrorw("failed to create pull request", "pr_id", req.PullRequestID, "error", err)
+		logger.Logger.Errorw("failed to create pull request", "pr_id", req.PullRequestID, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("pull request created", "pr_id", pr.PullRequestID, "reviewers_count", len(pr.AssignedReviewers))
-	writeJSON(w, statusCreated, domain.CreatePullRequestResponse{PR: pr})
+	logger.Logger.Infow("pull request created", "pr_id", pr.PullRequestID, "reviewers_count", len(pr.AssignedReviewers))
+	writeJSON(w, statusCreated, domain.PullRequestResponse{PR: pr})
 }
 
 func (h *PullRequestHandler) MergePullRequest(w http.ResponseWriter, r *http.Request) {
@@ -72,13 +72,13 @@ func (h *PullRequestHandler) MergePullRequest(w http.ResponseWriter, r *http.Req
 
 	pr, err := h.prService.MergePullRequest(r.Context(), &req)
 	if err != nil {
-		logger.SafeErrorw("failed to merge pull request", "pr_id", req.PullRequestID, "error", err)
+		logger.Logger.Errorw("failed to merge pull request", "pr_id", req.PullRequestID, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("pull request merged", "pr_id", pr.PullRequestID)
-	writeJSON(w, statusOK, domain.MergePullRequestResponse{PR: pr})
+	logger.Logger.Infow("pull request merged", "pr_id", pr.PullRequestID)
+	writeJSON(w, statusOK, domain.PullRequestResponse{PR: pr})
 }
 
 func (h *PullRequestHandler) ReassignReviewer(w http.ResponseWriter, r *http.Request) {
@@ -101,12 +101,12 @@ func (h *PullRequestHandler) ReassignReviewer(w http.ResponseWriter, r *http.Req
 
 	pr, newReviewerID, err := h.prService.ReassignReviewer(r.Context(), &req)
 	if err != nil {
-		logger.SafeErrorw("failed to reassign reviewer", "pr_id", req.PullRequestID, "old_reviewer_id", req.OldUserID, "error", err)
+		logger.Logger.Errorw("failed to reassign reviewer", "pr_id", req.PullRequestID, "old_reviewer_id", req.OldUserID, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("reviewer reassigned", "pr_id", pr.PullRequestID, "old_reviewer_id", req.OldUserID, "new_reviewer_id", newReviewerID)
+	logger.Logger.Infow("reviewer reassigned", "pr_id", pr.PullRequestID, "old_reviewer_id", req.OldUserID, "new_reviewer_id", newReviewerID)
 	writeJSON(w, statusOK, domain.ReassignReviewerResponse{
 		PR:         pr,
 		ReplacedBy: newReviewerID,

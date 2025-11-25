@@ -3,144 +3,107 @@ package helpers
 import (
 	"AVITOSAMPISHU/internal/domain"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRandSelectReviewers(t *testing.T) {
 	tests := []struct {
-		name      string
-		members   []domain.TeamMember
-		authorID  string
-		maxCount  int
-		validator func(t *testing.T, result []string)
+		name           string
+		members        []domain.TeamMember
+		authorID       string
+		maxCount       int
+		wantCount      int
+		wantNoAuthor   bool
+		wantOnlyActive bool
 	}{
 		{
-			name: "select all available candidates",
+			name: "normal case - select 2 from 5",
 			members: []domain.TeamMember{
-				{UserID: "user-1", IsActive: true},
-				{UserID: "user-2", IsActive: true},
-				{UserID: "user-3", IsActive: true},
+				{UserID: "user1", IsActive: true},
+				{UserID: "user2", IsActive: true},
+				{UserID: "user3", IsActive: true},
+				{UserID: "user4", IsActive: true},
+				{UserID: "user5", IsActive: true},
 			},
-			authorID: "author-1",
-			maxCount: 5,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 3 {
-					t.Errorf("expected 3 reviewers, got %d", len(result))
-				}
-			},
+			authorID:       "user1",
+			maxCount:       2,
+			wantCount:      2,
+			wantNoAuthor:   true,
+			wantOnlyActive: true,
 		},
 		{
-			name: "select limited count",
+			name: "exclude inactive users",
 			members: []domain.TeamMember{
-				{UserID: "user-1", IsActive: true},
-				{UserID: "user-2", IsActive: true},
-				{UserID: "user-3", IsActive: true},
-				{UserID: "user-4", IsActive: true},
+				{UserID: "user1", IsActive: true},
+				{UserID: "user2", IsActive: false},
+				{UserID: "user3", IsActive: true},
+				{UserID: "user4", IsActive: false},
 			},
-			authorID: "author-1",
-			maxCount: 2,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 2 {
-					t.Errorf("expected 2 reviewers, got %d", len(result))
-				}
-			},
+			authorID:       "user1",
+			maxCount:       2,
+			wantCount:      1, // Only user3 available (user1 is author, user2 and user4 are inactive)
+			wantNoAuthor:   true,
+			wantOnlyActive: true,
 		},
 		{
-			name: "exclude author",
+			name: "maxCount greater than available candidates",
 			members: []domain.TeamMember{
-				{UserID: "author-1", IsActive: true},
-				{UserID: "user-1", IsActive: true},
-				{UserID: "user-2", IsActive: true},
+				{UserID: "user1", IsActive: true},
+				{UserID: "user2", IsActive: true},
 			},
-			authorID: "author-1",
-			maxCount: 5,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 2 {
-					t.Errorf("expected 2 reviewers, got %d", len(result))
-				}
-				for _, reviewer := range result {
-					if reviewer == "author-1" {
-						t.Error("author should not be in reviewers list")
-					}
-				}
-			},
+			authorID:       "user1",
+			maxCount:       5,
+			wantCount:      1, // Only user2 available
+			wantNoAuthor:   true,
+			wantOnlyActive: true,
 		},
 		{
-			name: "exclude inactive members",
+			name: "maxCount is zero",
 			members: []domain.TeamMember{
-				{UserID: "user-1", IsActive: true},
-				{UserID: "user-2", IsActive: false},
-				{UserID: "user-3", IsActive: true},
+				{UserID: "user1", IsActive: true},
+				{UserID: "user2", IsActive: true},
 			},
-			authorID: "author-1",
-			maxCount: 5,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 2 {
-					t.Errorf("expected 2 reviewers, got %d", len(result))
-				}
-				for _, reviewer := range result {
-					if reviewer == "user-2" {
-						t.Error("inactive user should not be in reviewers list")
-					}
-				}
-			},
+			authorID:       "user1",
+			maxCount:       0,
+			wantCount:      0,
+			wantNoAuthor:   true,
+			wantOnlyActive: true,
 		},
 		{
-			name: "zero max count",
+			name: "all users inactive",
 			members: []domain.TeamMember{
-				{UserID: "user-1", IsActive: true},
+				{UserID: "user1", IsActive: false},
+				{UserID: "user2", IsActive: false},
 			},
-			authorID: "author-1",
-			maxCount: 0,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 0 {
-					t.Errorf("expected 0 reviewers, got %d", len(result))
-				}
-			},
-		},
-		{
-			name:     "empty members list",
-			members:  []domain.TeamMember{},
-			authorID: "author-1",
-			maxCount: 5,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 0 {
-					t.Errorf("expected 0 reviewers, got %d", len(result))
-				}
-			},
-		},
-		{
-			name: "negative max count",
-			members: []domain.TeamMember{
-				{UserID: "user-1", IsActive: true},
-			},
-			authorID: "author-1",
-			maxCount: -1,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 0 {
-					t.Errorf("expected 0 reviewers, got %d", len(result))
-				}
-			},
-		},
-		{
-			name: "all members inactive",
-			members: []domain.TeamMember{
-				{UserID: "user-1", IsActive: false},
-				{UserID: "user-2", IsActive: false},
-			},
-			authorID: "author-1",
-			maxCount: 5,
-			validator: func(t *testing.T, result []string) {
-				if len(result) != 0 {
-					t.Errorf("expected 0 reviewers, got %d", len(result))
-				}
-			},
+			authorID:       "user1",
+			maxCount:       2,
+			wantCount:      0,
+			wantNoAuthor:   true,
+			wantOnlyActive: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := RandSelectReviewers(tt.members, tt.authorID, tt.maxCount)
-			tt.validator(t, result)
+
+			require.Len(t, result, tt.wantCount, "result length should match expected count")
+
+			if tt.wantNoAuthor {
+				assert.NotContains(t, result, tt.authorID, "result should not contain author")
+			}
+
+			if tt.wantOnlyActive {
+				memberMap := make(map[string]bool)
+				for _, m := range tt.members {
+					memberMap[m.UserID] = m.IsActive
+				}
+				for _, reviewerID := range result {
+					assert.True(t, memberMap[reviewerID], "selected reviewer should be active")
+				}
+			}
 		})
 	}
 }

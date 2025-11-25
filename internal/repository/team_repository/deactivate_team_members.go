@@ -94,5 +94,6 @@ func (s *TeamStorage) DeactivateTeamMembers(
 		return nil, err
 	}
 
+	logger.LogTransactionCommit(operation)
 	return deactivatedIDs, nil
 }

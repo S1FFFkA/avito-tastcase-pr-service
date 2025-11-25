@@ -28,7 +28,7 @@ type errorMapping struct {
 
 func respondError(w http.ResponseWriter, err error) {
 	mapping := resolveError(err)
-	logger.SafeErrorw("request error", "status", mapping.status, "code", string(mapping.code), "error", err)
+	logger.Logger.Errorw("request error", "status", mapping.status, "code", string(mapping.code), "error", err)
 	writeJSON(w, mapping.status, domain.NewErrorResponse(mapping.code, mapping.message))
 }
 

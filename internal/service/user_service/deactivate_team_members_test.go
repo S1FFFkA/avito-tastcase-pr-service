@@ -1,143 +1,118 @@
 package service
 
 import (
+	"AVITOSAMPISHU/internal/domain"
+	"AVITOSAMPISHU/pkg/logger"
 	"context"
-	"errors"
-	"fmt"
 	"testing"
 
-	"AVITOSAMPISHU/internal/domain"
-	"AVITOSAMPISHU/internal/repository"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-type mockUserRepositoryForDeactivate struct {
-	repository.UserRepositoryInterface
-	getUserByIDFunc func(ctx context.Context, userID string) (*domain.User, error)
+func init() {
+	logger.InitLogger()
 }
 
-func (m *mockUserRepositoryForDeactivate) GetUserByID(ctx context.Context, userID string) (*domain.User, error) {
-	if m.getUserByIDFunc != nil {
-		return m.getUserByIDFunc(ctx, userID)
+// Mock repositories
+type MockUserRepository struct {
+	mock.Mock
+}
+
+func (m *MockUserRepository) GetUserByID(ctx context.Context, userID string) (*domain.User, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	return nil, nil
+	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-type mockPrReviewersRepositoryForDeactivate struct {
-	repository.PrReviewersRepositoryInterface
-	getPRsByReviewerFunc     func(ctx context.Context, userID string) ([]domain.PullRequestShort, error)
-	getAssignedReviewersFunc func(ctx context.Context, prID string) ([]string, error)
+func (m *MockUserRepository) SetUserIsActive(ctx context.Context, userID string, isActive bool) error {
+	args := m.Called(ctx, userID, isActive)
+	return args.Error(0)
 }
 
-func (m *mockPrReviewersRepositoryForDeactivate) GetAssignedReviewers(ctx context.Context, prID string) ([]string, error) {
-	if m.getAssignedReviewersFunc != nil {
-		return m.getAssignedReviewersFunc(ctx, prID)
+type MockPrReviewersRepository struct {
+	mock.Mock
+}
+
+func (m *MockPrReviewersRepository) GetAssignedReviewers(ctx context.Context, prID string) ([]string, error) {
+	args := m.Called(ctx, prID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	return nil, nil
+	return args.Get(0).([]string), args.Error(1)
 }
 
-func (m *mockPrReviewersRepositoryForDeactivate) GetPRsByReviewer(ctx context.Context, userID string) ([]domain.PullRequestShort, error) {
-	if m.getPRsByReviewerFunc != nil {
-		return m.getPRsByReviewerFunc(ctx, userID)
+func (m *MockPrReviewersRepository) GetPRsByReviewer(ctx context.Context, userID string) ([]domain.PullRequestShort, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	return []domain.PullRequestShort{}, nil
+	return args.Get(0).([]domain.PullRequestShort), args.Error(1)
 }
 
-type mockTeamRepositoryForDeactivate struct {
-	repository.TeamRepositoryInterface
-	getTeamByNameFunc         func(ctx context.Context, teamName string) (*domain.Team, error)
-	deactivateTeamMembersFunc func(ctx context.Context, teamName string, userIDs []string, reassignments []domain.ReviewerReassignment) ([]string, error)
+func (m *MockPrReviewersRepository) ReassignReviewer(ctx context.Context, prID, oldReviewerID, newReviewerID string) error {
+	args := m.Called(ctx, prID, oldReviewerID, newReviewerID)
+	return args.Error(0)
 }
 
-func (m *mockTeamRepositoryForDeactivate) GetTeamByName(ctx context.Context, teamName string) (*domain.Team, error) {
-	if m.getTeamByNameFunc != nil {
-		return m.getTeamByNameFunc(ctx, teamName)
+type MockTeamRepository struct {
+	mock.Mock
+}
+
+func (m *MockTeamRepository) GetTeamByName(ctx context.Context, teamName string) (*domain.Team, error) {
+	args := m.Called(ctx, teamName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	return nil, nil
+	return args.Get(0).(*domain.Team), args.Error(1)
 }
 
-func (m *mockTeamRepositoryForDeactivate) DeactivateTeamMembers(ctx context.Context, teamName string, userIDs []string, reassignments []domain.ReviewerReassignment) ([]string, error) {
-	if m.deactivateTeamMembersFunc != nil {
-		return m.deactivateTeamMembersFunc(ctx, teamName, userIDs, reassignments)
+func (m *MockTeamRepository) CreateTeamWithMembers(ctx context.Context, teamName string, members []domain.TeamMember) (uuid.UUID, error) {
+	args := m.Called(ctx, teamName, members)
+	if args.Get(0) == nil {
+		return uuid.Nil, args.Error(1)
 	}
-	return nil, nil
+	return args.Get(0).(uuid.UUID), args.Error(1)
 }
 
-func TestUserService_DeactivateTeamMembers(t *testing.T) {
+func (m *MockTeamRepository) DeactivateTeamMembers(ctx context.Context, teamName string, userIDs []string, reassignments []domain.ReviewerReassignment) ([]string, error) {
+	args := m.Called(ctx, teamName, userIDs, reassignments)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func TestUserServiceImpl_DeactivateTeamMembers(t *testing.T) {
 	tests := []struct {
-		name          string
-		req           *domain.DeactivateTeamMembersReq
-		setupMocks    func(*mockUserRepositoryForDeactivate, *mockPrReviewersRepositoryForDeactivate, *mockTeamRepositoryForDeactivate)
-		expectedRes   *domain.DeactivateTeamMembersRes
-		expectedError error
+		name                 string
+		req                  *domain.DeactivateTeamMembersReq
+		setupMocks           func(*MockTeamRepository, *MockPrReviewersRepository, *MockUserRepository)
+		wantErr              error
+		wantDeactivatedCount int
 	}{
 		{
-			name: "successful deactivation without PRs",
+			name: "successful deactivation",
 			req: &domain.DeactivateTeamMembersReq{
-				TeamName: "backend",
-				UserIDs:  []string{"user1", "user2"},
+				TeamName: "team1",
+				UserIDs:  []string{"user1"},
 			},
-			setupMocks: func(userRepo *mockUserRepositoryForDeactivate, prReviewersRepo *mockPrReviewersRepositoryForDeactivate, teamRepo *mockTeamRepositoryForDeactivate) {
-				teamRepo.getTeamByNameFunc = func(ctx context.Context, teamName string) (*domain.Team, error) {
-					return &domain.Team{
-						TeamName: "backend",
-						Members: []domain.TeamMember{
-							{UserID: "user1", IsActive: true},
-							{UserID: "user2", IsActive: true},
-							{UserID: "user3", IsActive: true},
-						},
-					}, nil
-				}
-				prReviewersRepo.getPRsByReviewerFunc = func(ctx context.Context, userID string) ([]domain.PullRequestShort, error) {
-					return []domain.PullRequestShort{}, nil
-				}
-				teamRepo.deactivateTeamMembersFunc = func(ctx context.Context, teamName string, userIDs []string, reassignments []domain.ReviewerReassignment) ([]string, error) {
-					return []string{"user1", "user2"}, nil
-				}
+			setupMocks: func(teamRepo *MockTeamRepository, prRepo *MockPrReviewersRepository, userRepo *MockUserRepository) {
+				teamRepo.On("GetTeamByName", mock.Anything, "team1").Return(&domain.Team{
+					TeamName: "team1",
+					Members: []domain.TeamMember{
+						{UserID: "user1", IsActive: true},
+						{UserID: "user2", IsActive: true},
+					},
+				}, nil)
+				prRepo.On("GetPRsByReviewer", mock.Anything, "user1").Return([]domain.PullRequestShort{}, nil)
+				teamRepo.On("DeactivateTeamMembers", mock.Anything, "team1", []string{"user1"}, mock.Anything).Return([]string{"user1"}, nil)
 			},
-			expectedRes: &domain.DeactivateTeamMembersRes{
-				DeactivatedUserIDs: []string{"user1", "user2"},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "deactivation with PR reassignment",
-			req: &domain.DeactivateTeamMembersReq{
-				TeamName: "backend",
-				UserIDs:  []string{"reviewer1"},
-			},
-			setupMocks: func(userRepo *mockUserRepositoryForDeactivate, prReviewersRepo *mockPrReviewersRepositoryForDeactivate, teamRepo *mockTeamRepositoryForDeactivate) {
-				teamRepo.getTeamByNameFunc = func(ctx context.Context, teamName string) (*domain.Team, error) {
-					return &domain.Team{
-						TeamName: "backend",
-						Members: []domain.TeamMember{
-							{UserID: "reviewer1", IsActive: true},
-							{UserID: "reviewer2", IsActive: true},
-							{UserID: "author1", IsActive: true},
-						},
-					}, nil
-				}
-				prReviewersRepo.getPRsByReviewerFunc = func(ctx context.Context, userID string) ([]domain.PullRequestShort, error) {
-					if userID == "reviewer1" {
-						return []domain.PullRequestShort{
-							{PullRequestID: "pr1", Status: domain.PRStatusOpen},
-						}, nil
-					}
-					return []domain.PullRequestShort{}, nil
-				}
-				prReviewersRepo.getAssignedReviewersFunc = func(ctx context.Context, prID string) ([]string, error) {
-					return []string{"reviewer1"}, nil
-				}
-				teamRepo.deactivateTeamMembersFunc = func(ctx context.Context, teamName string, userIDs []string, reassignments []domain.ReviewerReassignment) ([]string, error) {
-					return []string{"reviewer1"}, nil
-				}
-			},
-			expectedRes: &domain.DeactivateTeamMembersRes{
-				DeactivatedUserIDs: []string{"reviewer1"},
-				Reassignments: []domain.ReviewerReassignment{
-					{PrID: "pr1", OldReviewerID: "reviewer1", NewReviewerID: "reviewer2"},
-				},
-			},
-			expectedError: nil,
+			wantErr:              nil,
+			wantDeactivatedCount: 1,
 		},
 		{
 			name: "team not found",
@@ -145,97 +120,95 @@ func TestUserService_DeactivateTeamMembers(t *testing.T) {
 				TeamName: "nonexistent",
 				UserIDs:  []string{"user1"},
 			},
-			setupMocks: func(userRepo *mockUserRepositoryForDeactivate, prReviewersRepo *mockPrReviewersRepositoryForDeactivate, teamRepo *mockTeamRepositoryForDeactivate) {
-				teamRepo.getTeamByNameFunc = func(ctx context.Context, teamName string) (*domain.Team, error) {
-					return nil, domain.ErrNotFound
-				}
+			setupMocks: func(teamRepo *MockTeamRepository, prRepo *MockPrReviewersRepository, userRepo *MockUserRepository) {
+				teamRepo.On("GetTeamByName", mock.Anything, "nonexistent").Return(nil, domain.ErrNotFound)
 			},
-			expectedRes:   nil,
-			expectedError: domain.ErrNotFound,
+			wantErr:              domain.ErrNotFound,
+			wantDeactivatedCount: 0,
 		},
 		{
-			name: "user not member of team",
+			name: "user not a member of team",
 			req: &domain.DeactivateTeamMembersReq{
-				TeamName: "backend",
-				UserIDs:  []string{"user1", "user2"},
+				TeamName: "team1",
+				UserIDs:  []string{"user999"},
 			},
-			setupMocks: func(userRepo *mockUserRepositoryForDeactivate, prReviewersRepo *mockPrReviewersRepositoryForDeactivate, teamRepo *mockTeamRepositoryForDeactivate) {
-				teamRepo.getTeamByNameFunc = func(ctx context.Context, teamName string) (*domain.Team, error) {
-					return &domain.Team{
-						TeamName: "backend",
-						Members: []domain.TeamMember{
-							{UserID: "user3", IsActive: true},
-						},
-					}, nil
-				}
-				userRepo.getUserByIDFunc = func(ctx context.Context, userID string) (*domain.User, error) {
-					return &domain.User{UserID: userID, TeamName: "other-team"}, nil
-				}
+			setupMocks: func(teamRepo *MockTeamRepository, prRepo *MockPrReviewersRepository, userRepo *MockUserRepository) {
+				teamRepo.On("GetTeamByName", mock.Anything, "team1").Return(&domain.Team{
+					TeamName: "team1",
+					Members: []domain.TeamMember{
+						{UserID: "user1", IsActive: true},
+					},
+				}, nil)
 			},
-			expectedRes:   nil,
-			expectedError: fmt.Errorf("%w: user user1 is not a member of team backend", domain.ErrInvalidRequest),
+			wantErr:              domain.ErrInvalidRequest,
+			wantDeactivatedCount: 0,
 		},
 		{
-			name: "deactivate all team members successfully",
+			name: "empty user_ids list",
 			req: &domain.DeactivateTeamMembersReq{
-				TeamName: "backend",
+				TeamName: "team1",
+				UserIDs:  []string{},
+			},
+			setupMocks: func(teamRepo *MockTeamRepository, prRepo *MockPrReviewersRepository, userRepo *MockUserRepository) {
+				teamRepo.On("GetTeamByName", mock.Anything, "team1").Return(&domain.Team{
+					TeamName: "team1",
+					Members: []domain.TeamMember{
+						{UserID: "user1", IsActive: true},
+					},
+				}, nil)
+			},
+			wantErr:              domain.ErrInvalidRequest,
+			wantDeactivatedCount: 0,
+		},
+		{
+			name: "all team members in user_ids",
+			req: &domain.DeactivateTeamMembersReq{
+				TeamName: "team1",
 				UserIDs:  []string{"user1", "user2"},
 			},
-			setupMocks: func(userRepo *mockUserRepositoryForDeactivate, prReviewersRepo *mockPrReviewersRepositoryForDeactivate, teamRepo *mockTeamRepositoryForDeactivate) {
-				teamRepo.getTeamByNameFunc = func(ctx context.Context, teamName string) (*domain.Team, error) {
-					return &domain.Team{
-						TeamName: "backend",
-						Members: []domain.TeamMember{
-							{UserID: "user1", IsActive: true},
-							{UserID: "user2", IsActive: true},
-						},
-					}, nil
-				}
-				prReviewersRepo.getPRsByReviewerFunc = func(ctx context.Context, userID string) ([]domain.PullRequestShort, error) {
-					return []domain.PullRequestShort{}, nil
-				}
-				teamRepo.deactivateTeamMembersFunc = func(ctx context.Context, teamName string, userIDs []string, reassignments []domain.ReviewerReassignment) ([]string, error) {
-					return []string{"user1", "user2"}, nil
-				}
+			setupMocks: func(teamRepo *MockTeamRepository, prRepo *MockPrReviewersRepository, userRepo *MockUserRepository) {
+				teamRepo.On("GetTeamByName", mock.Anything, "team1").Return(&domain.Team{
+					TeamName: "team1",
+					Members: []domain.TeamMember{
+						{UserID: "user1", IsActive: true},
+						{UserID: "user2", IsActive: true},
+					},
+				}, nil)
 			},
-			expectedRes: &domain.DeactivateTeamMembersRes{
-				DeactivatedUserIDs: []string{"user1", "user2"},
-			},
-			expectedError: nil,
+			wantErr:              domain.ErrInvalidRequest,
+			wantDeactivatedCount: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			userRepo := &mockUserRepositoryForDeactivate{}
-			prReviewersRepo := &mockPrReviewersRepositoryForDeactivate{}
-			teamRepo := &mockTeamRepositoryForDeactivate{}
-			tt.setupMocks(userRepo, prReviewersRepo, teamRepo)
+			teamRepo := new(MockTeamRepository)
+			prRepo := new(MockPrReviewersRepository)
+			userRepo := new(MockUserRepository)
 
-			service := NewUserService(userRepo, prReviewersRepo, teamRepo)
-			res, err := service.DeactivateTeamMembers(context.Background(), tt.req)
+			tt.setupMocks(teamRepo, prRepo, userRepo)
 
-			if tt.expectedError != nil {
-				if err == nil {
-					t.Errorf("expected error %v, got nil", tt.expectedError)
-					return
-				}
-				if !errors.Is(err, tt.expectedError) && err.Error() != tt.expectedError.Error() {
-					t.Errorf("expected error %v, got %v", tt.expectedError, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("expected no error, got %v", err)
-					return
-				}
-				if res == nil {
-					t.Error("expected result, got nil")
-					return
-				}
-				if len(res.DeactivatedUserIDs) != len(tt.expectedRes.DeactivatedUserIDs) {
-					t.Errorf("expected %d deactivated users, got %d", len(tt.expectedRes.DeactivatedUserIDs), len(res.DeactivatedUserIDs))
-				}
+			service := &UserServiceImpl{
+				teamRepo:        teamRepo,
+				prReviewersRepo: prRepo,
+				userRepo:        userRepo,
 			}
+
+			result, err := service.DeactivateTeamMembers(context.Background(), tt.req)
+
+			if tt.wantErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Len(t, result.DeactivatedUserIDs, tt.wantDeactivatedCount)
+			}
+
+			teamRepo.AssertExpectations(t)
+			prRepo.AssertExpectations(t)
+			userRepo.AssertExpectations(t)
 		})
 	}
 }

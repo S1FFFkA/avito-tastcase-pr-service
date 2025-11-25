@@ -75,5 +75,6 @@ func (s *PrReviewersStorage) ReassignReviewer(
 		return err
 	}
 
+	logger.LogTransactionCommit(operation)
 	return nil
 }

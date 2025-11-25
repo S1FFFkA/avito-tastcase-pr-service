@@ -137,7 +137,8 @@ func (s *PullRequestServiceImpl) ReassignReviewer(
 
 	pr.AssignedReviewers = updatedReviewers
 
-	affectedReviewers := []string{req.OldUserID}
+	affectedReviewers := make([]string, 0, 2)
+	affectedReviewers = append(affectedReviewers, req.OldUserID)
 	if newReviewerID != "" {
 		affectedReviewers = append(affectedReviewers, newReviewerID)
 	}

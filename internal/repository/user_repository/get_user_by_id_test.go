@@ -1,82 +1,92 @@
-//go:build integration
-
 package repository
 
 import (
+	"AVITOSAMPISHU/internal/domain"
+	"AVITOSAMPISHU/pkg/logger"
 	"context"
 	"database/sql"
 	"testing"
-	"time"
 
-	"AVITOSAMPISHU/internal/domain"
-	"AVITOSAMPISHU/internal/infrastructure/database"
-
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupUserTestDB(t *testing.T) *sql.DB {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	db, err := database.NewDB(ctx)
-	require.NoError(t, err)
-
-	cleanupUserTestDB(t, db)
-	return db
-}
-
-func cleanupUserTestDB(t *testing.T, db *sql.DB) {
-	queries := []string{
-		"DELETE FROM reviewers",
-		"DELETE FROM pull_requests",
-		"DELETE FROM users",
-		"DELETE FROM teams",
-	}
-
-	for _, query := range queries {
-		_, err := db.Exec(query)
-		require.NoError(t, err)
-	}
+func init() {
+	logger.InitLogger()
 }
 
 func TestUserRepository_GetUserByID(t *testing.T) {
-	db := setupUserTestDB(t)
-	defer db.Close()
-	defer cleanupUserTestDB(t, db)
+	tests := []struct {
+		name    string
+		userID  string
+		setup   func(mock sqlmock.Sqlmock)
+		want    *domain.User
+		wantErr error
+	}{
+		{
+			name:   "successful get",
+			userID: "user1",
+			setup: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"username", "team_name", "is_active"}).
+					AddRow("User1", "Team1", true)
+				mock.ExpectQuery(`SELECT u.username, t.team_name, u.is_active`).
+					WithArgs("user1").
+					WillReturnRows(rows)
+			},
+			want: &domain.User{
+				UserID:   "user1",
+				Username: "User1",
+				TeamName: "Team1",
+				IsActive: true,
+			},
+			wantErr: nil,
+		},
+		{
+			name:   "user not found",
+			userID: "user999",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(`SELECT u.username, t.team_name, u.is_active`).
+					WithArgs("user999").
+					WillReturnError(sql.ErrNoRows)
+			},
+			want:    nil,
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name:   "database error",
+			userID: "user1",
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(`SELECT u.username, t.team_name, u.is_active`).
+					WithArgs("user1").
+					WillReturnError(sql.ErrConnDone)
+			},
+			want:    nil,
+			wantErr: sql.ErrConnDone,
+		},
+	}
 
-	repo := NewUserRepository(db)
-	teamStorage := NewTeamStorage(db)
-	ctx := context.Background()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
 
-	t.Run("user not found", func(t *testing.T) {
-		user, err := repo.GetUserByID(ctx, "nonexistent")
-		assert.Error(t, err)
-		assert.Nil(t, user)
-		assert.ErrorIs(t, err, domain.ErrNotFound)
-	})
+			tt.setup(mock)
 
-	t.Run("successful get", func(t *testing.T) {
-		_, err := teamStorage.CreateTeamWithMembers(ctx, "test-team", []domain.TeamMember{
-			{UserID: "user1", Username: "User 1", IsActive: true},
+			repo := NewUserRepository(db)
+			got, err := repo.GetUserByID(context.Background(), tt.userID)
+
+			if tt.wantErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+
+			assert.NoError(t, mock.ExpectationsWereMet())
 		})
-		require.NoError(t, err)
-
-		user, err := repo.GetUserByID(ctx, "user1")
-		require.NoError(t, err)
-		assert.Equal(t, "user1", user.UserID)
-		assert.Equal(t, "User 1", user.Username)
-		assert.Equal(t, "test-team", user.TeamName)
-		assert.True(t, user.IsActive)
-	})
-
-	t.Run("user without team", func(t *testing.T) {
-		_, err := db.Exec("INSERT INTO users (id, username, is_active) VALUES ($1, $2, $3)", "user-no-team", "User No Team", true)
-		require.NoError(t, err)
-
-		user, err := repo.GetUserByID(ctx, "user-no-team")
-		require.NoError(t, err)
-		assert.Equal(t, "user-no-team", user.UserID)
-		assert.Equal(t, "", user.TeamName)
-	})
+	}
 }

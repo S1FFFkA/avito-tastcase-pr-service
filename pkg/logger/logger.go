@@ -31,18 +31,14 @@ func InitLogger() {
 		Sampling:          nil,
 		Encoding:          "json",
 		EncoderConfig:     encoderCfg,
-		OutputPaths: []string{
-			"logs/log.txt",
-			"stdout",
-		},
-		ErrorOutputPaths: []string{
-			"logs/error.txt",
-			"stderr",
-		},
+		OutputPaths: make([]string, 0, 2),
+		ErrorOutputPaths: make([]string, 0, 2),
 		InitialFields: map[string]interface{}{
 			"pid": os.Getpid(),
 		},
 	}
+	config.OutputPaths = append(config.OutputPaths, "logs/log.txt", "stdout")
+	config.ErrorOutputPaths = append(config.ErrorOutputPaths, "logs/error.txt", "stderr")
 
 	baseLogger, err := config.Build()
 	if err != nil {
@@ -55,19 +51,5 @@ func InitLogger() {
 func Sync() {
 	if Logger != nil {
 		_ = Logger.Sync()
-	}
-}
-
-// SafeInfow безопасно вызывает Infow, если логгер инициализирован
-func SafeInfow(msg string, keysAndValues ...interface{}) {
-	if Logger != nil {
-		Logger.Infow(msg, keysAndValues...)
-	}
-}
-
-// SafeErrorw безопасно вызывает Errorw, если логгер инициализирован
-func SafeErrorw(msg string, keysAndValues ...interface{}) {
-	if Logger != nil {
-		Logger.Errorw(msg, keysAndValues...)
 	}
 }

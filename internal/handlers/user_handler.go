@@ -42,12 +42,12 @@ func (h *UserHandler) SetIsActive(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.SetIsActive(r.Context(), &req)
 	if err != nil {
-		logger.SafeErrorw("failed to set user active status", "user_id", req.UserID, "error", err)
+		logger.Logger.Errorw("failed to set user active status", "user_id", req.UserID, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("user active status updated", "user_id", user.UserID, "is_active", user.IsActive)
+	logger.Logger.Infow("user active status updated", "user_id", user.UserID, "is_active", user.IsActive)
 	writeJSON(w, statusOK, domain.SetIsActiveResponse{User: user})
 }
 
@@ -65,12 +65,12 @@ func (h *UserHandler) GetUserReviews(w http.ResponseWriter, r *http.Request) {
 
 	prs, err := h.userService.GetUserReviews(r.Context(), userID)
 	if err != nil {
-		logger.SafeErrorw("failed to get user reviews", "user_id", userID, "error", err)
+		logger.Logger.Errorw("failed to get user reviews", "user_id", userID, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("user reviews retrieved", "user_id", userID, "prs_count", len(prs))
+	logger.Logger.Infow("user reviews retrieved", "user_id", userID, "prs_count", len(prs))
 	writeJSON(w, statusOK, domain.GetUserReviewsResponse{
 		UserID:       userID,
 		PullRequests: prs,
@@ -97,11 +97,11 @@ func (h *UserHandler) DeactivateTeamMembers(w http.ResponseWriter, r *http.Reque
 
 	res, err := h.userService.DeactivateTeamMembers(r.Context(), &req)
 	if err != nil {
-		logger.SafeErrorw("failed to deactivate team members", "team_name", req.TeamName, "error", err)
+		logger.Logger.Errorw("failed to deactivate team members", "team_name", req.TeamName, "error", err)
 		respondError(w, err)
 		return
 	}
 
-	logger.SafeInfow("team members deactivated", "team_name", req.TeamName, "deactivated_count", len(res.DeactivatedUserIDs))
+	logger.Logger.Infow("team members deactivated", "team_name", req.TeamName, "deactivated_count", len(res.DeactivatedUserIDs))
 	writeJSON(w, statusOK, res)
 }

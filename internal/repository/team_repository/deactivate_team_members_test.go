@@ -1,90 +1,145 @@
-//go:build integration
-
 package repository
 
 import (
+	"AVITOSAMPISHU/internal/domain"
+	"AVITOSAMPISHU/pkg/logger"
 	"context"
 	"database/sql"
 	"testing"
-	"time"
 
-	"AVITOSAMPISHU/internal/domain"
-	"AVITOSAMPISHU/internal/infrastructure/database"
-
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	logger.InitLogger()
+}
+
 func TestTeamStorage_DeactivateTeamMembers(t *testing.T) {
-	db := setupTeamTestDB(t)
-	defer db.Close()
-	defer cleanupTeamTestDB(t, db)
+	tests := []struct {
+		name          string
+		teamName      string
+		userIDs       []string
+		reassignments []domain.ReviewerReassignment
+		setup         func(mock sqlmock.Sqlmock)
+		want          []string
+		wantErr       error
+	}{
+		{
+			name:          "successful deactivation with specific users",
+			teamName:      "team1",
+			userIDs:       []string{"user1", "user2"},
+			reassignments: []domain.ReviewerReassignment{},
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				rows := sqlmock.NewRows([]string{"id"}).
+					AddRow("user1").
+					AddRow("user2")
+				mock.ExpectQuery(`UPDATE users u`).
+					WithArgs("team1", pq.Array([]string{"user1", "user2"})).
+					WillReturnRows(rows)
+				mock.ExpectCommit()
+			},
+			want:    []string{"user1", "user2"},
+			wantErr: nil,
+		},
+		{
+			name:     "successful deactivation with reassignments",
+			teamName: "team1",
+			userIDs:  []string{"user1"},
+			reassignments: []domain.ReviewerReassignment{
+				{PrID: "pr1", OldReviewerID: "user1", NewReviewerID: "user3"},
+			},
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				rows := sqlmock.NewRows([]string{"id"}).AddRow("user1")
+				mock.ExpectQuery(`UPDATE users u`).
+					WithArgs("team1", pq.Array([]string{"user1"})).
+					WillReturnRows(rows)
+				mock.ExpectExec(`DELETE FROM reviewers`).
+					WithArgs("pr1", "user1").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec(`INSERT INTO reviewers`).
+					WithArgs("pr1", "user3").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectCommit()
+			},
+			want:    []string{"user1"},
+			wantErr: nil,
+		},
+		{
+			name:          "database error on update",
+			teamName:      "team1",
+			userIDs:       []string{"user1"},
+			reassignments: []domain.ReviewerReassignment{},
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`UPDATE users u`).
+					WithArgs("team1", pq.Array([]string{"user1"})).
+					WillReturnError(sql.ErrConnDone)
+				mock.ExpectRollback()
+			},
+			want:    nil,
+			wantErr: sql.ErrConnDone,
+		},
+		{
+			name:     "foreign key error on reassignment",
+			teamName: "team1",
+			userIDs:  []string{"user1"},
+			reassignments: []domain.ReviewerReassignment{
+				{PrID: "pr1", OldReviewerID: "user1", NewReviewerID: "non-existent"},
+			},
+			setup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				rows := sqlmock.NewRows([]string{"id"}).AddRow("user1")
+				mock.ExpectQuery(`UPDATE users u`).
+					WithArgs("team1", pq.Array([]string{"user1"})).
+					WillReturnRows(rows)
+				mock.ExpectExec(`DELETE FROM reviewers`).
+					WithArgs("pr1", "user1").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				pqErr := &pq.Error{Code: "23503"}
+				mock.ExpectExec(`INSERT INTO reviewers`).
+					WithArgs("pr1", "non-existent").
+					WillReturnError(pqErr)
+				mock.ExpectRollback()
+			},
+			want:    nil,
+			wantErr: &pq.Error{Code: "23503"},
+		},
+	}
 
-	storage := NewTeamStorage(db)
-	ctx := context.Background()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
 
-	_, err := storage.CreateTeamWithMembers(ctx, "deactivate-team", []domain.TeamMember{
-		{UserID: "user1", Username: "User 1", IsActive: true},
-		{UserID: "user2", Username: "User 2", IsActive: true},
-		{UserID: "user3", Username: "User 3", IsActive: true},
-	})
-	require.NoError(t, err)
+			tt.setup(mock)
 
-	t.Run("deactivate specific users", func(t *testing.T) {
-		deactivated, err := storage.DeactivateTeamMembers(ctx, "deactivate-team", []string{"user1", "user2"}, nil)
-		require.NoError(t, err)
-		assert.Len(t, deactivated, 2)
-		assert.Contains(t, deactivated, "user1")
-		assert.Contains(t, deactivated, "user2")
+			repo := NewTeamStorage(db)
+			got, err := repo.DeactivateTeamMembers(context.Background(), tt.teamName, tt.userIDs, tt.reassignments)
 
-		team, err := storage.GetTeamByName(ctx, "deactivate-team")
-		require.NoError(t, err)
-		for _, member := range team.Members {
-			if member.UserID == "user1" || member.UserID == "user2" {
-				assert.False(t, member.IsActive)
+			if tt.wantErr != nil {
+				assert.Error(t, err)
+				if pqErr, ok := tt.wantErr.(*pq.Error); ok {
+					if gotPqErr, ok := err.(*pq.Error); ok {
+						assert.Equal(t, pqErr.Code, gotPqErr.Code)
+					} else {
+						assert.Contains(t, err.Error(), "foreign key")
+					}
+				} else {
+					assert.ErrorIs(t, err, tt.wantErr)
+				}
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
-			if member.UserID == "user3" {
-				assert.True(t, member.IsActive)
-			}
-		}
-	})
 
-	t.Run("deactivate all users in team", func(t *testing.T) {
-		_, err := storage.CreateTeamWithMembers(ctx, "all-deactivate-team", []domain.TeamMember{
-			{UserID: "user1", Username: "User 1", IsActive: true},
-			{UserID: "user2", Username: "User 2", IsActive: true},
+			assert.NoError(t, mock.ExpectationsWereMet())
 		})
-		require.NoError(t, err)
-
-		deactivated, err := storage.DeactivateTeamMembers(ctx, "all-deactivate-team", []string{"user1", "user2"}, nil)
-		require.NoError(t, err)
-		assert.Len(t, deactivated, 2)
-	})
-
-	t.Run("deactivate with reassignments", func(t *testing.T) {
-		_, err := storage.CreateTeamWithMembers(ctx, "reassign-team", []domain.TeamMember{
-			{UserID: "reviewer1", Username: "Reviewer 1", IsActive: true},
-			{UserID: "reviewer2", Username: "Reviewer 2", IsActive: true},
-		})
-		require.NoError(t, err)
-
-		prStorage := NewPullRequestStorage(db)
-		pr := &domain.PullRequest{
-			PullRequestID:   "pr-reassign",
-			PullRequestName: "Test PR",
-			AuthorID:        "author1",
-			Status:          domain.PRStatusOpen,
-		}
-		err = prStorage.CreatePullRequestWithReviewers(ctx, pr, []string{"reviewer1"}, false)
-		require.NoError(t, err)
-
-		reassignments := []domain.ReviewerReassignment{
-			{PrID: "pr-reassign", OldReviewerID: "reviewer1", NewReviewerID: "reviewer2"},
-		}
-
-		deactivated, err := storage.DeactivateTeamMembers(ctx, "reassign-team", []string{"reviewer1"}, reassignments)
-		require.NoError(t, err)
-		assert.Len(t, deactivated, 1)
-		assert.Contains(t, deactivated, "reviewer1")
-	})
+	}
 }
