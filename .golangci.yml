@@ -1,5 +1,5 @@
 # Конфигурация golangci-lint для проекта PR Reviewer Assignment Service
-# Документация: https://golangci-lint.run/usage/configuration/
+
 
 version: 2
 

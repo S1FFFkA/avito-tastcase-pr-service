@@ -1,8 +1,6 @@
-.PHONY: help run build test test-unit test-coverage lint format mod-tidy \
-	migrate-up migrate-down docker-up docker-up-fast docker-down docker-restart \
-	docker-logs docker-logs-backend docker-logs-postgres docker-logs-prometheus \
-	docker-test-up docker-test-down integration-tests integration-tests-docker \
-	clean clean-all
+.PHONY: help run build mod-tidy test test-unit test-coverage lint \
+	migrate-up migrate-down docker-up docker-down \
+	docker-test-up docker-test-down integration-tests integration-tests-docker
 
 # Переменные
 GO=go
@@ -17,7 +15,6 @@ help:
 	@echo "Разработка:"
 	@echo "  make run              - Запустить приложение локально"
 	@echo "  make build            - Собрать приложение"
-	@echo "  make format           - Форматировать код (go fmt)"
 	@echo "  make mod-tidy         - Обновить зависимости (go mod tidy)"
 	@echo ""
 	@echo "Тестирование:"
@@ -36,18 +33,11 @@ help:
 	@echo ""
 	@echo "Docker (основное окружение):"
 	@echo "  make docker-up       - Запустить все сервисы с пересборкой"
-	@echo "  make docker-up-fast  - Запустить все сервисы без пересборки"
 	@echo "  make docker-down     - Остановить все сервисы и удалить volumes"
-	@echo "  make docker-restart  - Перезапустить все сервисы"
-	@echo "  make docker-logs     - Показать логи всех сервисов"
 	@echo ""
 	@echo "Docker (тестовое окружение):"
 	@echo "  make docker-test-up  - Запустить тестовую БД"
 	@echo "  make docker-test-down - Остановить тестовую БД"
-	@echo ""
-	@echo "Очистка:"
-	@echo "  make clean           - Удалить собранные файлы и отчеты"
-	@echo "  make clean-all       - Полная очистка (включая Docker volumes)"
 
 # Запуск приложения
 run:
@@ -57,10 +47,6 @@ run:
 build:
 	@mkdir -p bin
 	$(GO) build -o bin/app ./cmd/main.go
-
-# Форматирование кода
-format:
-	$(GO) fmt ./...
 
 # Обновление зависимостей
 mod-tidy:
@@ -90,50 +76,19 @@ lint:
 
 # Применение миграций
 migrate-up:
-	@if [ -z "$$DB_DSN" ]; then \
-		echo "Ошибка: установите переменную DB_DSN"; \
-		echo "Пример: export DB_DSN=postgres://user:pass@localhost:5432/dbname?sslmode=disable"; \
-		exit 1; \
-	fi
 	$(MIGRATE) -path migrations -database "$$DB_DSN" up
 
 # Откат миграций
 migrate-down:
-	@if [ -z "$$DB_DSN" ]; then \
-		echo "Ошибка: установите переменную DB_DSN"; \
-		echo "Пример: export DB_DSN=postgres://user:pass@localhost:5432/dbname?sslmode=disable"; \
-		exit 1; \
-	fi
 	$(MIGRATE) -path migrations -database "$$DB_DSN" down
 
 # Запуск через docker-compose с пересборкой
 docker-up:
 	$(DOCKER_COMPOSE) up -d --build
 
-# Запуск через docker-compose без пересборки
-docker-up-fast:
-	$(DOCKER_COMPOSE) up -d
-
 # Остановка docker-compose
 docker-down:
 	$(DOCKER_COMPOSE) down -v
-
-# Перезапуск docker-compose
-docker-restart: docker-down docker-up
-
-# Просмотр логов всех сервисов
-docker-logs:
-	$(DOCKER_COMPOSE) logs -f
-
-# Просмотр логов конкретного сервиса
-docker-logs-backend:
-	$(DOCKER_COMPOSE) logs -f app
-
-docker-logs-postgres:
-	$(DOCKER_COMPOSE) logs -f postgres
-
-docker-logs-prometheus:
-	$(DOCKER_COMPOSE) logs -f prometheus
 
 # Запуск тестовой БД
 docker-test-up:
@@ -154,16 +109,7 @@ integration-tests-docker:
 	@echo "Ожидание готовности БД..."
 	@sleep 5
 	@echo "Запуск интеграционных тестов..."
-	@$(GO) test -v -tags=integration ./integration_tests/... || EXIT_CODE=$$?; \
+	@$(GO) test -v -tags=integration ./integration_tests/...; \
+	EXIT_CODE=$$?; \
 	$(DOCKER_COMPOSE_TEST) down -v; \
 	exit $$EXIT_CODE
-
-# Очистка собранных файлов
-clean:
-	rm -rf bin/
-	rm -f coverage.out coverage.html
-
-# Полная очистка (включая Docker volumes)
-clean-all: clean docker-down docker-test-down
-	@echo "Очистка завершена"
-
